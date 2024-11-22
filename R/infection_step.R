@@ -1,83 +1,42 @@
-infection_step <- function(X, prob){
-  # infecting upwards (above)   -------------------------------------------------------
-  # boolean matrix of those who have had close contact with the cell above
-  cc_above <- sample(c(TRUE, FALSE), prob = c(prob, 1 - prob),
-                     size = (nrow(X) - 1) * ncol(X), replace = TRUE)
-  cc_above <- matrix(cc_above, nrow = nrow(X) - 1, ncol = ncol(X))
-  # boolean matrix of a cell that had close contact with an **infected** cell
-  new_infection_above <- X[-1, ] == 1 & cc_above
-  # applying the new infected cells to the original matrix
-  Xabove <- X
-  Xabove[-nrow(X) , ][new_infection_above] <- 1
+#' A single infection time step
+#'
+#' @param x A matrix of 0's, 1's, and/or 2's.
+#' @param prob A float value of the probability of infection of a given cell.
+#'
+#' @return A matrix of special class: SIRmatrix
+#' @export
+#'
+#' @examples
+#' infection_step(infect_corners(30, 30), 0.2)
+#'
+#' infection_step(random_infection(30, 30), 0.1)
+infection_step <- function(x, prob){
+  # make a slightly bigger matrix, so we don't have to worry about the boundaries.
+  nr2 = nrow(x) + 2
+  nc2 = ncol(x) + 2
+  x2 <- matrix(0, nrow = nr2, ncol = nc2)
+  infected <- which(x == 1, arr.ind = TRUE) + 1
+  ni <- nrow(infected)
 
-
-  # infecting downwards (below) -------------------------------------------------------
-  cc_below <- sample(c(TRUE, FALSE), prob = c(prob, 1 - prob),
-                     size = (nrow(X) - 1) * ncol(X), replace = TRUE)
-  cc_below <- matrix(cc_below, nrow = nrow(X) - 1, ncol = ncol(X))
-  new_infection_below <- X[-nrow(X), ] == 1 & cc_below
-  Xbelow <- X
-  Xbelow[-1 , ][new_infection_below] <- 1
-
-  # infecting to the right      -------------------------------------------------------
-  cc_right <- sample(c(TRUE, FALSE), prob = c(prob, 1 - prob),
-                     size = nrow(X) * (ncol(X) - 1), replace = TRUE)
-  cc_right <- matrix(cc_right, nrow = nrow(X), ncol = ncol(X) - 1)
-  new_infection_right <- X[ , -ncol(X)] == 1 & cc_right
-  Xright <- X
-  Xright[ , -1][new_infection_right] <- 1
-
-  # infecting to the left       -------------------------------------------------------
-  cc_left <- sample(c(TRUE, FALSE), prob = c(prob, 1 - prob),
-                    size = nrow(X) * (ncol(X) - 1), replace = TRUE)
-  cc_left <- matrix(cc_left, nrow = nrow(X), ncol = ncol(X) - 1)
-  new_infection_left <- X[ , -1] == 1 & cc_left
-  Xleft <- X
-  Xleft[ , -ncol(X)][new_infection_left] <- 1
-
-  # infecting northeast         -------------------------------------------------------
-  cc_northeast <- sample(c(TRUE, FALSE), prob = c(prob, 1 - prob),
-                         size = (nrow(X) - 1) * (ncol(X) - 1), replace = TRUE)
-  cc_northeast <- matrix(cc_northeast, nrow = nrow(X) - 1, ncol = ncol(X) - 1)
-  new_infection_northeast <- X[-1, -ncol(X)] == 1 & cc_northeast
-  Xnortheast <- X
-  Xnortheast[-nrow(X) , -1][new_infection_northeast] <- 1
-
-  # infecting southeast         -------------------------------------------------------
-  cc_southeast <- sample(c(TRUE, FALSE), prob = c(prob, 1 - prob),
-                         size = (nrow(X) - 1) * (ncol(X) - 1), replace = TRUE)
-  cc_southeast <- matrix(cc_southeast, nrow = nrow(X) - 1, ncol = ncol(X) - 1)
-  new_infection_southeast <- X[-nrow(X), -ncol(X)] == 1 & cc_southeast
-  Xsoutheast <- X
-  Xsoutheast[-1 , -1][new_infection_southeast] <- 1
-
-  # infecting northwest         -------------------------------------------------------
-  cc_northwest <- sample(c(TRUE, FALSE), prob = c(prob, 1 - prob),
-                         size = (nrow(X) - 1) * (ncol(X) - 1), replace = TRUE)
-  cc_northwest <- matrix(cc_northwest, nrow = nrow(X) - 1, ncol = ncol(X) - 1)
-  new_infection_northwest <- X[-1, -1] == 1 & cc_northwest
-  Xnorthwest <- X
-  Xnorthwest[-nrow(X) , -ncol(X)][new_infection_northwest] <- 1
-
-  # infecting southwest         -------------------------------------------------------
-  cc_southwest <- sample(c(TRUE, FALSE), prob = c(prob, 1 - prob),
-                         size = (nrow(X) - 1) * (ncol(X) - 1), replace = TRUE)
-  cc_southwest <- matrix(cc_southwest, nrow = nrow(X) - 1, ncol = ncol(X) - 1)
-  new_infection_southwest <- X[-nrow(X), -1] == 1 & cc_southwest
-  Xsouthwest <- X
-  Xsouthwest[-1 , -ncol(X)][new_infection_southwest] <- 1
-
-  # combine all matrices by addition
-  directions <- list(Xbelow, Xabove, Xright, Xleft,
-                     Xnortheast, Xsoutheast, Xnorthwest, Xsouthwest)
-  newX <- 0
-  for(direction in directions){
-    newX <- newX + direction
+  directions <- c(-1, 0, 1)
+  # Don't worry about cells that are already infected or removed
+  for(i in directions){
+    for(j in directions){
+      infect_ij <- infected
+      infect_ij[, "row"] <- infect_ij[, "row"] + i
+      infect_ij[, "col"] <- infect_ij[, "col"] + j
+      new_inf_rows <- sample(c(TRUE, FALSE), size = ni,
+                             prob = c(prob, 1-prob), replace = TRUE)
+      new_infect <- infect_ij[new_inf_rows, , drop = FALSE]
+      x2[new_infect] <- 1
+    }
   }
 
-  # fix boundaries of values, return matrix
-  newX[newX >= 2] <- 1 # multiple infected neighbors could've infected the same cell again
-  newX[X == 1] <- 2
-  class(newX) <- c("SIRmatrix", class(newX))
-  newX
+  # Remove the edges from the too big matrix
+  X <- x2[-c(1, nr2), -c(1, nc2)]
+
+  # Fix the cells that are already infected or removed
+  X[1 <= x] <- 2
+  class(X) <- c("SIRmatrix", class(X))
+  X
 }

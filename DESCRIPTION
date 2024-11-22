@@ -1,12 +1,13 @@
 Package: SIR
-Title: What the Package Does (One Line, Title Case)
+Title: SIR Simulation Package
 Version: 0.0.0.9000
 Authors@R: 
-    person("First", "Last", , "first.last@example.com", role = c("aut", "cre"),
-           comment = c(ORCID = "YOUR-ORCID-ID"))
-Description: What the package does (one paragraph).
-License: `use_mit_license()`, `use_gpl3_license()` or friends to pick a
-    license
+    person("Jessica", "Villanueva", , "jessicabv101@gmail.com", role = c("aut", "cre"))
+Description: Functions that help simulate SIR (susceptible, infected, removed) 
+    scenarios in R. Functions include initial infection starting in the corners, 
+    random initial infection, a single infection simulation step, a full simulation
+    until infection dies out, a plotting function, and a summary function.
+License: MIT + file LICENSE
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.2

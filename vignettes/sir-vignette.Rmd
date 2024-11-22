@@ -1,0 +1,91 @@
+---
+title: "SIR Simulations and Functions"
+author: "Jessica Villanueva"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{sir-vignette}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  dpi = 300
+)
+```
+
+```{r setup, message = FALSE}
+library(SIR)
+```
+
+## Introduction
+This package allows the user to simulate basic SIR (Susceptible-Infected-Removed) models, denoted as 0, 1, and 2 respectively. In these simulations, a pre-defined infection probability rate is given to the package function and is used to run the simulation on a given matrix until there are no more active infections left. This vignette will demonstrate how to use the package functions and what data can be gleaned through plots/outputs of the simulations.
+
+## The Model
+The main function `simulate_sir` is used to generate a simulation of a SIR model. It takes in parameters for infection probability (`prob`) as well as the matrix to perform the simulation on (`X`). It then calls `infection_step` repeatedly until there are no more active infections in the matrix. 
+
+`infection_step` looks at the matrix, notes the cells that are initially infected (denoted as 1), and uses the probability to determine whether the infected cells' neighbors will also become infected. The infection spreads in all 8 directions if the cell is in the middle, 3 directions if the cell is in the corner, or 5 directions if the cell is on the edge. 
+
+Under the hood, `infection_step` handles this by creating an identical matrix of boolean values, `TRUE` if the cell has had close contact with its neighbor and `FALSE` if it didn't (based on the probability given). It then compares this with the original matrix which already has infected cells. If the cell in question has had close contact with a neighbor AND that neighbor was infected, then the cell in question also becomes infected. 
+
+## Demonstration
+Let's see the functions of this package in action. The `SIR` package comes with a generic plotting function for matrices of class `SIRmatrix` that can be used to visualize the simulations that are run. Susceptible cells are colored white, infected cells are colored red, and removed cells are colored grey.
+
+```{r out.width = '100%'}
+plot(infect_corners(), title = "Initial Infection")
+```
+  
+Here, the initial infection starts in the corners and if we continue to take additional time steps, the infection will spread outward from the corners until there are no more active infections left. `infect_corners()` assigns the corners of the given matrix to be infected every time, without exception.
+
+`plot()` is a generic function that can accept multiple parameters, since it acts as a wrapper function for `image()`. For example:
+```{r out.width = '100%'}
+plot(random_infection(30, 30), title = "Random Initial Infection", sub = "Each cell has a 0.2 chance of being infected.")
+```
+
+`random_infection()` is a function that takes in a probability and randomly infects any cell on the matrix based on the given probability. This can be used if the infection doesn't necessarily begin in the corners and can spread from any location on the matrix.
+
+If we wanted to see a step in the infection process, we can plot steps individually, as follows:
+
+```{r, out.width = '100%'}
+# 0.15 is the probability a cell will initially get infected
+grid <- random_infection(30, 30, 0.15)
+plot(grid, title = "Initial Infection")
+# 0.25 is the probability the infection will spread to a neighboring cell
+plot(infection_step(grid, 0.25), "Next Time Step")
+```
+
+In the initial infection, the cells are either in two states; susceptible or infected. At the next time step, the cells that were previously infected are now grey (indicating they are removed) and cells that are newly infected are now red. Susceptible cells stay white. 
+
+If we wanted to continue with the simulation, we would use the `simulate_sir` function. For example:
+
+```{r out.width = '100%'}
+# `simulate_sir` returns a list 
+simulation_info <- simulate_sir(prob = 0.25, X = infect_corners())
+plot(simulation_info[['matrix']], title = "Plotting the simulation")
+```
+
+This represents the end of the simulation, after the infection has died out. Here we can see which cells got infected and which cells didn't. The `simulate_sir` function returns a list of information about the simulation including the number of iterations before the infection died out, the probability of infection, the proportion of cells infected, and the final matrix.
+
+## Other Output Possibilities
+
+```{r out.width = '100%'}
+# creating a sequence of different probabilities of infection
+prob_infect <- seq(from = 0.1, to = 0.9, by = 0.0005)
+
+# creating simulations for each probability in the sequence, starting the infection in the corners of the matrix
+results <- lapply(prob_infect, simulate_sir, infect_corners(50, 50))
+
+# extracting just the matrix information from the results
+matrices <- lapply(results, `[[`, "matrix")
+
+# turning the other results (besides matrix) into a data frame
+results2 <- data.frame(
+  iter = sapply(results, `[[`, "iterationNumber"),
+  prob = sapply(results, `[[`, "probability"),
+  prop = sapply(results, `[[`, "proportion")
+)
+```
+
+This is an example of creating a data frame of about 1800 SIR simulations executed on a 50 x 50 matrix where the infection started in the corners and spread from there. Each simulation represents a different probability of infection. From the data, we are able to observe interesting trends and explore niches to discover answers to questions we never would have thought of before. With this data frame, we can go on to plot the data as well.
